@@ -1,0 +1,309 @@
+
+#   MIPS Lexathon game by 
+#   Jeremy Polansky
+#   David Dillard 
+#   Vivek Puttaparthi
+#   Steven Larsen 
+# 
+#  
+# 
+#
+
+
+.text
+.globl main
+
+.include "newGameSetup"
+.include "userInput"
+.include "dictionaryGridTests"
+.include "getInput"
+.include "scoringMethods"
+.include "grid.asm"
+.include "music"
+
+
+main:	
+startingPoint:	
+jal NewGameMusic
+sw $0, maxWords		#Reset the game
+sw $0, totalTime	#	
+sw $0, score		#
+sw $0, correctWordCount	#
+li $t1, 60		#
+sw $t1, correctWordsLeft#
+jal initializeNewGame	#
+jal gameOpening		#
+
+la $a0, userInput	#Tell the user to press a button to start the game
+la $a1, userInput
+li $v0, 8
+syscall
+
+jal generateSystemTime	#Start timer up by placing the starting time in variable
+sw $v0, startTime	
+jal removeValidWords	
+jal removeLetter
+
+jal gameStart		#jump to the start of the game
+lw $a0, startTime	#prime timePassed
+jal timePassed
+sw $v0, totalTime	#save the return	
+jal endGameScore				
+la $a0, listCorrectWords#the list of correct words	
+li $v0, 4		
+syscall			#print String
+jal displayValidWords
+la $a0, listMissedWords#List of the words not answered
+li $v0, 4		
+syscall			#print String
+jal availableWords	
+jal promptNewGame				
+bne $v0, $0, startingPoint#if wanting to play again			
+li $v0, 10						
+syscall			#close the progam
+	
+	
+gameStart:
+addi $sp, $sp, -4
+sw $ra, 0($sp)
+	
+gameLoop:
+lw $t0, correctWordCount		#the amount of qords teh player entered
+lw $t1, maxWords			#the number of possible owrds for this game
+beq $t0, $t1, enteredAllCorrectWords	#if all words are entered
+la $a0, actualMainWord
+jal grid				#displays grid of 9 letter words, with key word in 4th position - Steven 
+beq $s5, 1, gameSkipTime
+sw $0, beginTime			#initialize to 0 each time
+jal generateSystemTime
+sw $v0, beginTime
+#----------------------------------------------------------------------------------------------------		
+gameSkipTime:	
+jal getInput
+add $s5, $v0, $0
+beq $s5, $0, gameEnd			#if user enters a 0, proceed to exit dialogue 
+beq $s5, 1, gameRandom			#if user enters a 1, randomize words 
+beq $s5, 2, gameDisplayTime		#if user enters a 2, display time 
+beq $s5, 3, gameDisplayEntered		#if user enters a 3, display list of correct words 
+beq $s5, 4, gameInstructions		#if user enters a 4, display program instructions again 
+	
+jal checkGuess	
+bne $v0, $0, runCorrectEntry		#if 0: invalid, else 1: valid
+#----------------------------------------------------------------------------------------------------		
+runIncorrectEntry:
+lw $a0, beginTime			#The time the game started
+jal timePassed				#method returning the amount of time since the Start
+add $t1, $v0, $0
+add $a1, $t1, $0
+lw $a0, correctWordsLeft
+jal incorrectScoreUpdate
+beq $v0, $0, gameEnd			#the game is over
+j gameLoop
+#----------------------------------------------------------------------------------------------------		
+runCorrectEntry:	
+lw $a0, beginTime			#The time the game started
+jal timePassed				#method returning the amount of time since the Start
+add $t0, $v0, $0	
+lw $a0, wordLength			#parameteres for adding input score
+lw $a1, score				#
+lw $a2, correctWordsLeft		#	
+add $a3, $0, $t0			#	
+jal addInputScore				#update the Score
+beq $v0, $0, gameEnd
+j gameLoop
+#----------------------------------------------------------------------------------------------------		
+enteredAllCorrectWords:
+la $a0, allWordsFound		
+li $v0, 4
+syscall
+#----------------------------------------------------------------------------------------------------	
+gameEnd:
+jal EndGameMusic				#reverse 3 notes for opening music - David 
+jal displayInput
+	
+lw $ra, 0($sp)
+addi $sp, $sp, 4
+jr $ra
+#----------------------------------------------------------------------------------------------------	
+gameRandom:
+jal generateRandomWord
+j gameLoop
+#----------------------------------------------------------------------------------------------------	
+gameDisplayTime:
+la $a0, timeText		#text fot displying time
+li $v0, 4
+syscall				#print String
+	
+lw $a0, beginTime		#use system time to keep track of gametime + changes to time based on score 
+jal timePassed		
+add $t0, $v0, $0		#timePassed = t0	
+	
+lw $t1, correctWordsLeft	#
+sub $t1, $t1, $t0
+sw $t1, correctWordsLeft	#
+	
+ble $t1, $0, gameEnd		#if there are not words left
+move $a0, $t1
+li $v0, 1			#print integer
+syscall
+	
+la $a0, printSeconds
+li $v0, 4
+syscall				#print Strin
+j gameLoop
+#----------------------------------------------------------------------------------------------------	
+gameDisplayEntered:
+la $a0, listCorrectWords	#Prints our the correct words that can be generated
+li $v0, 4
+syscall				#prints a Sstring
+jal displayValidWords
+j gameLoop
+#----------------------------------------------------------------------------------------------------	
+gameInstructions:
+jal gameOpening
+la $a0, userInput		
+la $a1, userInput
+li $v0, 8		
+syscall				#read String
+	
+j gameLoop
+
+
+
+
+
+
+
+
+.data
+##################################################  gameOpening #########################################################################################
+#NOTE: will not print out forward slash - David 
+Lex0: .asciiz "\n  _        ___  __ __   ____  ______  __ __   ___   ____  "
+Lex1: .asciiz "\n | |      /  _]|  |  | /    ||      ||  |  | /   \ |      ' "
+Lex2: .asciiz "\n | |     /  [_ |  |  ||  o  ||      ||  |  ||     ||  _  |"
+Lex3: .asciiz "\n | |___ |    _]|_   _||     ||_|  |_||  _  ||  O  ||  |  |"
+Lex4: .asciiz "\n |     ||   [_ |     ||  _  |  |  |  |  |  ||     ||  |  |"
+Lex5: .asciiz "\n |     ||     ||  |  ||  |  |  |  |  |  |  ||     ||  |  |"
+Lex6: .asciiz "\n |_____||_____||__|__||__|__|  |__|  |__|__| \___/ |__|__|\n"
+
+
+newGameMessage1: .asciiz "Welcome!!\nThis game has been designed in MIPS, modeled after the Android game: Lexathon\n"
+newGameMessage2: .asciiz "Your goal is to find as many words as possible from the randomly selected 9 letter word in the grid - but you must use the center letter every time!\n"
+newGameMessage3: .asciiz "You will start with 60 seconds, but each correct guess will increase your give you 20 seconds of new time. Be fast - and get a higher score!\n\n"
+newGameMessage4: .asciiz "------------------------------------------------------------------------------------------------------------------------------------------------\n"
+newGameMessage5: .asciiz "To quit the game at any point, type '0' or press '4' to see instructions again\n"
+newGameMessage6: .asciiz "Good luck, are you ready to begin? (press any key to start the game)\n"
+newGameMessage7: .asciiz "Ready to begin? (Hit Enter to Start)\n"
+
+#DATA FOR GRID
+Row1:		.asciiz "Game Options:\t\t\t-------------\t\tDisplay Options:\n"
+gridRowTwoLeft:		.asciiz "0 - Stop this Game.\t\t| "
+pipeCommand:		.asciiz " | "
+EndofRow2:		.asciiz " |\t\t2 - Display time.\n"
+Row3:			.asciiz "1 - Shuffle the Letters.\t|-----------|\t\t3 - Display Correct Words.\n"
+BeginingOfRow4and6:	.asciiz "\t\t\t\t| "
+endOfRow4:		.asciiz " |\t\t4 - Display Instructions.\n"
+Row5:			.asciiz "\t\t\t\t|-----------|\n"
+endOfRow6:		.asciiz " |\n"
+Row7:			.asciiz "\t\t\t\t-------------\n"
+	
+	
+#DATA FOR INPUT 
+askForInput: .asciiz "Enter a word:\n"
+typedInText: .asciiz "Good Game!\n"
+userWord:
+.align 2
+.word 10
+userInput: .word 0
+goodbyeMessage: .asciiz "\nGoodbye! Don't forget to play again!\n" 
+
+	
+#DATA FOR SCORING
+startText: .asciiz "This tests the scoring subroutine\n"
+printSeconds: .asciiz " seconds\n"
+timeText: .asciiz "\nTime remaining: "
+printFinalScore:  .asciiz "\nYour final score is: "
+printTotalTime: .asciiz "\nTotal time: "
+timeTestText: .asciiz "Your entry took: "
+printWordsPer: .asciiz "Words per minute: "
+scoreText: .asciiz " Score: "
+scoreReset: .asciiz " Score has been reset "		#note: use for testing 
+wordsFoundSoFar: .asciiz "You have found "
+percentFoundText: .asciiz "\nPercentage of words found: "
+exitByOutOfTime: .asciiz "You're out of Time!\n"
+allWordsFound: .asciiz "Congratulations! You have won!\n"
+close: .asciiz "%)\n"
+newLineChar: .asciiz "\n"
+score: .word 0
+wordLength: .word 6
+totalTime: .word 0
+correctWordsLeft:
+.word 60
+.align 2
+correctWordCount: .word 0
+maxWords: .word 0
+openParenthesis: .asciiz "("
+slash: .asciiz "/"
+percent: .word 0
+.space 4
+#DATA FOR TIME
+beginTime: .word 0	
+statusTime: .word 0	
+startTime: .word 
+.space 4
+endTime: .word
+.space 4
+currentTime: .word
+printTimeDisplay: .asciiz ""
+#DATA FOR MAIN PROGRAM
+myWord: .space 10
+	.align 0
+strspace: .asciiz " "
+newline: .asciiz "\n"
+wordstyped: .asciiz "The correct words you entered are: \n"
+wordsleft: .asciiz ": \n "
+correctEntryText: .asciiz "\nGreat job! You got a word correct!\n"
+wordsEnteredCorrect:
+.align 2
+.space 1000
+numwordsEnteredCorrect: 
+.align 2
+.word 0
+numwordsMissed: 
+.align 2
+.word 0
+enteredword : 
+.align 2
+.space 10
+missedWordsArray:
+.align 2
+.space 1000
+incorrectInput: .asciiz "That word is not corrrect, make sure you're using the middle letter in the grid.\n"
+wordsUserMissed: .asciiz "\nThe words you missed are: \n"	
+thisWordIsRepeated: .asciiz "You have already entered this word!\n"
+filename: .asciiz	"  "
+dictionary:
+.space 500000
+dictionaryArray:
+.align 2
+.space 368000
+wordsUsedInGame:
+.align	2
+.space 10000
+listLength: .word 0
+actualMainWord: 
+.align 0
+.space 10
+lettersInBox: .space 26
+lettersInInput: .space 26
+mainLetter: .byte 'A'
+endline: .asciiz "----"
+correctWords: .space 10000
+listCorrectWords: .asciiz "Here are the words you guessed correctly:\n"
+listMissedWords:	
+.asciiz "\nHere are the words you missed:\n"
+.align 2
+runProgramAgainText: .asciiz "Game over. Press 'Y' to play a new game, or press 'N' to exit\n"	
+invalidPlayAgain: .asciiz "Sorry, please press 'Y' to play again or press 'N' to exit\n"
+
+

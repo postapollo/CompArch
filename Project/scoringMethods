@@ -1,0 +1,314 @@
+
+.text
+
+
+incorrectScoreUpdate:
+add $t0, $0, $a0		
+add $t1, $0, $a1		
+
+sub $t2, $t0, $t1				# subtract from sys time to find time taken to get point
+sw $t2, correctWordsLeft			# correct words left in dictionary 
+lw $t2, score				# update score var with time gained from point 
+blt $t1, 5, quitCheckSysTime		
+div $t1, $t1, 5				# divide time variable by 5 to find time of user input 
+quitRemovePoints:	
+beq $t1, 0, quitCheckSysTime
+beq $t2, 0, quitCheckSysTime
+addi $t2, $t2, -1
+addi $t1, $t1, -1
+j	quitRemovePoints
+resetPoints:
+add $t0, $0, $0 
+lw $t0, score
+la $a0, scoreReset 
+li $v0, 4
+syscall
+jr $ra 
+quitCheckSysTime:
+sw $t2, score
+lw $t0, correctWordsLeft
+ble $t0, $0, quitOutOfTime
+	
+la $a0, timeText
+li $v0, 4
+syscall
+
+lw $a0, correctWordsLeft
+li $v0, 1
+syscall
+	
+la $a0, printSeconds
+li $v0, 4
+syscall
+
+addi $v0, $0, 1		
+j quitWrongEntry
+quitOutOfTime:
+la $a0, exitByOutOfTime
+li $v0, 4
+syscall
+
+#quitSuccess:
+#la $a0, gameWon
+#li $v0, 4
+#syscall
+
+add $v0, $0, $0		
+quitWrongEntry:
+jr $ra
+	
+	
+#Calculates the Current Time in MIPS
+#a0 will hold bits from system time in Windows, will convert from milliseconds to secodns 
+generateSystemTime:
+li $v0, 30	
+syscall	
+li $t0, 1000			#NOTE: game requires use of seconds - David 
+div $a0, $t0		
+mflo $v0
+jr $ra
+	
+#Determines the Time that has elapsed at any given time			
+timePassed:
+addi $sp, $sp, -8
+sw $ra, ($sp)
+sw $a0, 4($sp)
+jal generateSystemTime	
+lw $t0, 4($sp)
+lw $ra, ($sp)
+addi $sp, $sp, 8
+sub $v0, $v0, $t0
+jr $ra
+
+
+addInputScore:
+add $t0, $0, $a0		
+add $t1, $0, $a1		
+add $t2, $0, $a2		
+add $t4, $0, $a3		
+lw $s0, correctWordCount
+addi $s0, $s0, 1
+sw $s0, correctWordCount
+	
+la $a0, wordsFoundSoFar
+li $v0, 4
+syscall
+	
+lw $a0, correctWordCount
+li $v0, 1
+syscall
+	
+la $a0, slash
+li $v0, 4
+syscall
+
+lw $a0, maxWords
+li $v0, 1
+syscall
+	
+
+	
+sub $t2, $t2, $t4
+ble $t2, $0, stopAddingScore
+
+ble $t4, 5, bonusSubroutine 
+div $t4, $t4, 5
+removePoints:				#user will lose points based on late entry 
+beq $t4, $0, subtractionExit
+beq $t1, $0, subtractionExit
+subi $t1, $t1, 1
+subi $t4, $t4, 1		
+j removePoints			# after 5 seconds, score will decrease by 1, per MIPS rules 
+bonusSubroutine:
+addi $s0, $0, 5		
+sub $t4, $s0, $t4
+mul $t0, $t4, $t0
+subtractionExit: #length = added to score
+addi $t2, $t2, 20		
+add $t1, $t1, $t0	
+sw $t1, score
+sw $t2, correctWordsLeft
+displayScore:	
+la $a0, scoreText
+li $v0, 4
+syscall
+	
+add 	$a0, $t1, $0
+li 	$v0, 1
+syscall
+	
+	
+la 	$a0, timeText
+li 	$v0, 4
+syscall
+	
+add 	$a0, $t2, $0
+li 	$v0, 1
+syscall
+
+la 	$a0, printSeconds
+li 	$v0, 4
+syscall
+
+addi	$v0, $0, 1
+jr	$ra
+stopAddingScore:
+la 	$a0, exitByOutOfTime
+li 	$v0, 4
+syscall
+add	$v0, $0, $0
+jr	$ra
+	
+#Displays the end score
+endGameScore:
+
+la $a0, printFinalScore
+li 	$v0, 4
+syscall
+
+lw 	$a0, score
+li 	$v0, 1
+syscall
+
+#Calculates the total time taken
+la 	$a0, printTotalTime
+li 	$v0, 4
+syscall
+
+lw 	$a0, totalTime
+li 	$v0, 1
+syscall
+
+la 	$a0, printSeconds
+li 	$v0, 4
+syscall
+
+#Calculatges the words per minute
+la $a0, printWordsPer
+li $v0, 4
+syscall
+
+lw $t0, totalTime			
+lw $t1, correctWordCount	
+addi $t2, $0, 60
+
+mul $t1, $t1, $t2
+div $t1, $t1, $t0
+
+add $a0, $t1, $0
+li $v0, 1
+syscall
+
+
+#Calculates the percent of the questions you got right
+lw $t0, correctWordCount	
+lw $t1, maxWords		
+
+		
+addi $t3, $0, 100		
+mul $t0, $t0, $t3		
+div $t2, $t0, $t1		
+
+la $a0, percentFoundText
+li $v0, 4
+syscall
+
+lw $a0, correctWordCount
+li $v0, 1
+syscall
+
+la $a0, slash
+li $v0, 4
+syscall
+
+lw $a0, maxWords
+li $v0, 1
+syscall
+
+la $a0, openParenthesis
+li $v0, 4
+syscall
+
+sw $t2, percent
+lw $a0, percent
+li $v0, 1
+syscall
+
+la $a0, close
+li $v0, 4
+syscall
+
+jr $ra
+
+
+
+#Alt Timer
+Start:
+li $v0, 4
+la $a0, timeText
+syscall
+addi $s1, $0, 82
+addi $s2, $0, 65
+addi $s3, $0, 68
+addi $s4, $0, 114
+addi $s5, $0, 97
+addi $s6, $0, 100
+addi $a3, $0, 8388606
+
+FirstTimestamp:
+addi $s7, $0, 120
+li $v0, 30
+syscall
+move $s0, $a0
+srl $s0, $s0, 1
+	
+LoopStart:
+li $v0, 12
+syscall
+beq $v0, $s1, R
+beq $v0, $s2, A
+beq $v0, $s3, D
+beq $v0, $s4, R
+beq $v0, $s5, A
+beq $v0, $s6, D
+j Invalid
+
+CalcElapsed:
+li $v0, 30
+syscall
+srl $a0, $a0, 1
+sub $a0, $s0, $a0
+srl $a0, $a0, 9
+sub $a0, $a3, $a0
+sub $a0, $s7, $a0
+addi $a0, $a0, -61
+jr $ra
+
+D:								
+jal CalcElapsed
+li $v0, 1
+syscall
+li $v0 4
+la $a0, printSeconds
+syscall
+j LoopStart
+R:								
+li $v0, 4
+la $a0, printSeconds
+syscall
+j FirstTimestamp
+A:								
+addi $s7, $s7, 20
+j LoopStart
+Invalid:							
+li $v0, 4
+la $a0, printSeconds
+syscall
+j LoopStart
+
+End:
+li $v0, 10
+syscall
+
+
+

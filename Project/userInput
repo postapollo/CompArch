@@ -1,0 +1,166 @@
+
+# - David Dillard
+# methods to check user's guess against correct word listing
+# will return 1 for correct word match
+# will return 0 for incorrect word match
+# dependencies with MUSIC
+# initial checkGuess methods use temporary registers for user guesses, and $s registers or correct pointer array 
+
+.text
+
+#--------------------------------------------------------------- checkGuess 
+
+checkGuess:
+add $s1, $0, $0
+checkGuessNextWord:
+add $t1, $0, $0		
+checkGuessLoop:		
+la $t0, userWord	
+lw $s0, wordsUsedInGame($s1)
+beq $s0, 0, checkGuessExitFalse	
+bne $s0, 1, checkGuessCont
+addi $s1, $s1, 4
+j checkGuessNextWord 
+checkGuessCont:	
+add $t2, $t1, $t0 
+add $s2, $t1, $s0
+lb $t3, 0($t2) 
+lb $s3, 0($s2)
+	
+beq $t3, $0, checkGuessExitCondition 	
+beq $t3, '\n', checkGuessExitCondition	
+
+beq $s3, $0, checkGuessCheckNext
+	
+bne $t3, $s3, checkGuessCheckNext 
+
+addi $t1, $t1, 1
+j checkGuessLoop
+
+checkGuessExitCondition:
+beq $s3, $0, checkGuessExitTrue
+beq $s3, '\r', checkGuessExitTrue
+checkGuessCheckNext:
+addi $s1, $s1, 4
+j checkGuessNextWord
+	
+checkGuessExitFalse:
+la $a0, incorrectInput 
+li $v0, 4
+syscall
+
+#add	$v0, $0, $0				#does not preserve correctInput value after music 
+j WrongInput					#plays music, jumps to checkGuessExit 
+
+checkGuessExitTrue:
+la $a0, correctEntryText		
+li $v0, 4
+syscall
+	
+sw $s0, correctWords($s1)			#move string pointer over to correctWords 
+li $t0, 1
+sw $t0, wordsUsedInGame($s1) 			#checks against dictionary 
+	
+#addi	$v0, $0, 1				#does not preserve correctInput value after music 
+j CorrectInput 				   	# add music for correct user word input 
+checkGuessExit:
+jr $ra
+	
+#--------------------------------------------------------------- availableWords 	
+availableWords:
+add $t1, $0, $0
+
+displayAllAvailableWords:
+lw $t0, wordsUsedInGame($t1)
+beq $t0, 0, printPossibleExit	
+bne $t0, 1, displayWord
+addi $t1, $t1, 4
+j displayAllAvailableWords
+displayWord:
+lb $t2, 0($t0)
+	
+la $a0, ($t0)
+li $v0, 4
+syscall
+	
+la $a0, newLineChar
+li $v0, 4
+syscall
+
+addi $t1, $t1, 4
+j displayAllAvailableWords
+printPossibleExit:
+jr $ra
+	
+#--------------------------------------------------------------- displayValidWords 
+
+displayValidWords:
+add $t1, $0, $0
+
+displayValidWordsLoop:
+lw $t0, correctWords($t1)
+beq $t0, 0, displayValidExitSub	
+bne $t0, 1, displayValidWord
+addi $t1, $t1, 4
+j displayValidWordsLoop
+displayValidWord:
+lb $t2, 0($t0)
+	
+la $a0, ($t0)
+li $v0, 4
+syscall
+
+la $a0, newLineChar
+li $v0, 4
+syscall
+
+addi $t1, $t1, 4
+j displayValidWordsLoop
+displayValidExitSub:
+jr $ra		
+	
+#--------------------------------------------------------------- removeValidWords 
+
+removeValidWords:
+add	$t1, $0, $0				
+removeValidWordsLoop:			
+beq $t1, 9996, removeValidWordsExit 
+lw $t0, correctWords($t1)
+addi $t0, $0, 1
+sw $t0, correctWords($t1)
+add $t1, $t1, 4
+j removeValidWordsLoop	
+removeValidWordsExit:
+sw $0, correctWords($t1)
+jr $ra
+	
+#--------------------------------------------------------------- removeLetter 
+
+removeLetter:
+addi $sp, $sp, -4
+sw $ra, ($sp)		
+add $t3, $0, $0
+removeLoop:
+lw $t0, wordsUsedInGame($t3)
+beq $t0, 0, removeExit				
+bne $t0, 1, removeWordTest 
+addi $t3, $t3, 4
+j removeLoop					
+removeWordTest:
+move $a0, $t0					
+jal HasMainLetterScan
+beq $v1, $0, removeWord
+addi $t3, $t3, 4
+j removeLoop
+removeWord:
+li $t2, 1					
+sw $t2, wordsUsedInGame($t3)			
+lw $t4, maxWords				
+addi $t4, $t4, -1
+sw $t4, maxWords
+addi $t3, $t3, 4				
+j removeLoop					 
+removeExit:
+lw $ra, ($sp)					
+addi $sp, $sp, 4
+jr $ra

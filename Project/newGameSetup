@@ -1,0 +1,265 @@
+.text
+initializeNewGame:
+add	$sp, $sp, -4
+sw	$ra, 0($sp)
+jal generateFileName		# gets a value 1-7 randomly, opens that specific text file 
+jal importFromFile 		# import word is loaded into dictionary, with available words derived from 9 letter origina l
+jal fillDictionary		# check user input words aginst our dictionary 
+jal mainWord  			# get main word from our text file 1-7 
+jal generateRandomWord
+jal findMiddleLetter
+lw	$ra, 0($sp)
+add	$sp, $sp, 4
+jr $ra
+
+
+# This file contains the methods needed to read the dictionary file.
+# genearaeFileName -> method used to obtain our file from 1 of 7 text files located in root directory 
+
+
+#Gets the fileName
+generateFileName:
+li $v0, 41   		
+syscall  		#random integer     
+divu $t0, $a0, 7    	#no hihger than 7 
+mfhi $v0
+addi $v0, $v0, '1'	
+la $t1, filename
+sb $v0, ($t1)		#store into filename	
+sb $0, 1($t1)		#make filename into a one character String
+	jr $ra
+
+#Imports words from file into a space designated for the dictionary
+importFromFile:
+la $a0, filename 	#Load a0 with the filename to be read
+li $a1,0
+li $a2,0
+li $v0, 13 		#Open file syscall
+syscall
+move $t0, $v0 		#File descriptor is returned into v0 which will be needed to read from file 
+li $v0, 14 		#Read from file syscall
+move $a0, $t0
+la $a1, dictionary	#Load words from file starting at dictionary address
+li, $a2, 1000000	#Some arbitrary number of words that know cannot be exceeded
+syscall
+li $v0, 16		#Close file syscall
+move $a0, $t0		#File descriptor to be closed must be in in $a0
+syscall
+jr $ra
+
+
+#This subroutine will be used to fill dictionaryArray, an array of pointers to words imported from any given file during a play through of the game
+fillDictionary:
+la $a0, dictionary		#Load the starting address of the dictionary into #a0 to be used 
+la $a1, dictionaryArray		#load starting address of the array of pointers
+sw $a0, ($a1)			#Store the starting address of "dictonary" into the first position of "dictionaryArray" as a pointer
+add $v1, $0, $0			#Ckear $v1 to hold the number of words in the list
+add $v1, $v1, 1	
+add $a1, $a1, 4	
+
+fillDictionaryLoop:
+lb $t0, ($a0) 			#Load byte from the dictionary
+beq $t0, 0, dictionaryFilled 	#If the loop is done reading every word from the dictionary(words provided from file) exit the loop
+bne $t0, 10, newLineInFile	#if there is a new line encountered
+#Every time there is a new line in file, store the pointer 
+sb $0, ($a0)			#Replace evey new line with found with a null character to represent the end of a word
+add $a0, $a0, 1			#Increment scanner
+sw $a0, ($a1)			#Save the pointer of the beginning of a word
+add $a1, $a1, 4			#Move to next word
+add $v1, $v1, 1			#Increment total number of words found in file
+j fillDictionaryLoop
+
+newLineInFile:
+add $a0, $a0, 1		#Increment scanner	
+j fillDictionaryLoop
+
+
+dictionaryFilled:
+sw $v1, listLength
+jr $ra
+	
+	
+	
+#This subroutine will get a nine letter word from the file and appropriately fill the square
+mainWord:
+subi $sp, $sp, 4	#Store $ra on the stack
+sw $ra, ($sp)  
+la $s1, dictionaryArray	#load the address of the beginning of the pointer array to dictionary of words
+
+mainWordLoop:
+lw $a0, listLength	#Load the length of the dictionary to be used later
+jal randNumber		#Generate a random number which will be used to randomize the nine letter square 
+move $s2, $v0		#Store the random number for later use
+#changed by Steven
+
+#Gets pointer to number s2 string
+sll $t7, $s2, 2
+add $t7, $s1, $t7
+lw $a0, ($t7)
+jal getLength			#Get the length of the string stored in $a0, returned in #v0
+beq $v1, 10, mainWordFound 	#If $v1 has more than 9
+j mainWordLoop		
+
+mainWordFound:
+la $s3, actualMainWord		#Get ready to store the nine letter word found
+move $s4, $s2
+
+#Gets pointer to number s2 string
+sll $t7, $s2, 2
+add $t7, $s1, $t7
+lw $s2, ($t7)
+#Get the word
+li $t0, 0
+
+mainWordFoundLoop:
+beq $t0, 11, findFirstWord	#If counter increments to 11 branch off
+lb $t1, ($s2)			#Load and store each character of the word into the space
+sb $t1, ($s3)
+add $s3, $s3, 1			#Increment positions and counters
+add $s2, $s2, 1
+add $t0, $t0, 1
+j mainWordFoundLoop
+
+#Finds the first word in the dictionary, it is alphabetically organized based on the nine letter word
+findFirstWord:	
+addi $s4, $s4, -1	#Climb up the list of words
+#Steven changed
+	
+sll $t7, $s4, 2
+add $t7, $s1, $t7
+lw $a0, ($t7)
+#Get the word
+lb $t0 ($a0)	
+beq $t0, '#', findFirstWordLocated
+#j findFirstWordLoop
+j findFirstWord
+findFirstWordLocated:	#First word possible from nine letter in box found
+li $t0, 0	
+addi $s4, $s4, 2
+la $s5, wordsUsedInGame
+lw $t4, maxWords 	#Load the max num of words into #t4 fopr later use
+findFirstWordLoop:
+sll $t7, $s4, 2
+add $t7, $s1, $t7
+lw $a0, ($t7)
+lb $t0 ($a0)				#Load first character of word
+beq $t0, '#', findFirstWordReturn 	#Continue to climb up the list of words until # is found, signifiying top of list of possible words 
+sll $t7, $s4, 2
+add $t7, $s1, $t7
+lw $a0, ($t7)	
+sw $a0, ($s5)				#Store word in wordsUsedInGame
+
+addi $t4, $t4, 1 #Increment max number of words for score calculation
+
+addi $s4, $s4, 1	
+addi $t0, $t0, 1
+addi $s5, $s5, 4 #Move to next word
+j findFirstWordLoop
+	
+findFirstWordReturn:
+sw $t4, maxWords	#Store the max number of words
+sw $t0, listLength	#Store the length of list
+lw $ra, ($sp) 	#Restore stack pointer and $ra 
+addi $sp, $sp, 4
+jr $ra
+	
+#Randomizes the letters in the boz
+generateRandomWord:
+addi $sp, $sp, -4
+sw $ra, ($sp)
+la $t1, actualMainWord
+add $t0, $0, $0
+randomizeWordLoop:	
+beq $t0, 9, randomWordDisplay
+beq $t0, 4, randomSubGridWord
+
+#li $v0, 30	#uses time for a random seed
+#syscall		#time fromt he system millisecond from January 1970 stored in $a0, $a1
+#move $a1, $a0
+#li $a0, 4	
+#li $v0, 40	
+#syscall		#Set teh seed for a random number
+#li $a0, 4
+#li $v0, 41	
+#syscall		#get a random integer
+#add $t1, $a0, $0
+#addi $t2, $0, 9
+
+
+
+
+li   $v0, 41       #syscall for random int
+syscall
+li $t5, 9
+#divu $t1, $a0, $t5   #Change the length to be lesser than 9
+divu $a0, $t5
+mfhi $t1		#output 
+
+
+#divu $t1, $t2
+#fhi $t1	#modular division 
+
+bne $t1, 4, randomSub
+j randomizeWordLoop
+randomSub:	
+beq $t0, $t1, randomizeWordLoop
+
+lb $t2, actualMainWord($t0)
+lb $t3, actualMainWord($t1)
+sb $t3, actualMainWord($t0)
+sb $t2, actualMainWord($t1)
+randomSubGridWord:
+addi $t0, $t0, 1
+j randomizeWordLoop
+randomWordDisplay:	
+lw $ra, ($sp)
+addi $sp, $sp, 4	
+jr $ra
+
+#Finds the middle letter of the now randomized boz of letters and stores it
+findMiddleLetter:
+la $t1, actualMainWord
+lb $t1, 4($t1)
+sb $t1, mainLetter
+jr $ra 
+
+#Prints the Lexathon intro as well as the rules 
+gameOpening:
+la $a0, Lex0
+li $v0, 4
+syscall 
+la $a0, Lex1
+syscall 
+la $a0, Lex2
+syscall 
+la $a0, Lex3
+syscall 
+la $a0, Lex4
+syscall 
+la $a0, Lex5
+syscall 
+la $a0, Lex6
+syscall 
+
+la 	$a0, newGameMessage1
+#li 	$v0, 4
+syscall
+la $a0, newGameMessage2
+syscall
+la $a0, newGameMessage3
+syscall
+la $a0, newGameMessage4
+syscall
+la $a0, newGameMessage5
+syscall
+la $a0, newGameMessage6
+syscall 
+la $a0, newGameMessage7
+syscall 
+jr $ra
+
+
+#Generates a random number
+randNumber9:
+
+

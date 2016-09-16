@@ -1,0 +1,146 @@
+
+#Plays music ($a0 - pitch, $a1 - duration, $a2 - instrument, $a3 - volume)
+PlayMusic:
+	addi $v0, $0, 33		#sys call to play music 
+	syscall
+	jr $ra				#return 
+		
+		
+WrongInput:
+
+	#####################
+	addi $sp, $sp, -20
+	sw $a0, 0($sp)
+	sw $a1, 4($sp)
+	sw $a2, 8($sp)
+	sw $a3, 12($sp)
+	sw $ra, 16($sp)
+	
+	addi $a0, $0, 40  		# pitch
+	addi $a1, $0, 1000 		# duration
+	addi $a2, $0, 70 		# instrument
+	addi $a3, $0, 200 		# volume
+	#jal	PlayMusic		#note - does not preserve function calls directly #### -David 
+	
+	addi $v0, $0, 33
+	syscall
+				
+	#####################
+	lw $ra, 16($sp)
+	lw $a3, 12($sp)
+	lw $a2, 8($sp)
+	lw $a1, 4($sp)
+	lw $a0, 0($sp)
+	addi $sp, $sp, 20
+	#jr $ra #Return			#note - does not preserve function calls directly #### -David
+		
+	add	$v0, $0, $0		#required to restore the balues of true/false guess 
+	j	checkGuessExit
+	
+CorrectInput:
+
+	#####################
+	addi $sp, $sp, -20
+	sw $a0, 0($sp)
+	sw $a1, 4($sp)
+	sw $a2, 8($sp)
+	sw $a3, 12($sp)
+	sw $ra, 16($sp)
+		
+	addi $a0, $0, 70  # pitch
+	addi $a1, $0, 800 # duration
+	addi $a2, $0, 90 # instrument
+	addi $a3, $0, 170 # volume
+	addi $v0, $0, 33
+	syscall
+		
+	addi $a0, $0, 80  # pitch
+	addi $a1, $0, 890 # duration
+	addi $a2, $0, 90 # instrument
+	addi $a3, $0, 200 # volume
+	addi $v0, $0, 33
+	syscall
+		
+	#####################
+	lw $ra, 16($sp)
+	lw $a3, 12($sp)
+	lw $a2, 8($sp)
+	lw $a1, 4($sp)
+	lw $a0, 0($sp)
+	addi $sp, $sp, 20
+		
+	addi	$v0, $0, 1		#required to restore the balues of true/false guess 
+	j checkGuessExit 
+		
+		
+NewGameMusic:
+	#####################
+	addi $sp, $sp, -20
+	sw $a0, 0($sp)
+	sw $a1, 4($sp)
+	sw $a2, 8($sp)
+	sw $a3, 12($sp)
+	sw $ra, 16($sp)	
+			
+	addi $a0, $0, 40  # pitch
+	addi $a1, $0, 1000 # duration
+	addi $a2, $0, 80 # instrument
+	addi $a3, $0, 80 # volume
+	jal PlayMusic
+		
+	addi $a0, $0, 45  # pitch
+	addi $a1, $0, 900 # duration
+	addi $a2, $0, 80 # instrument
+	addi $a3, $0, 100 # volume
+	jal PlayMusic
+		
+	addi $a0, $0, 50  # pitch
+	addi $a1, $0, 1100 # duration
+	addi $a2, $0, 80 # instrument
+	addi $a3, $0, 110 # volume
+	jal PlayMusic
+		
+	#####################
+	lw $ra, 16($sp)
+	lw $a3, 12($sp)
+	lw $a2, 8($sp)
+	lw $a1, 4($sp)
+	lw $a0, 0($sp)
+	addi $sp, $sp, 20
+	jr $ra #Return
+		
+EndGameMusic:
+	#####################
+	addi $sp, $sp, -20
+	sw $a0, 0($sp)
+	sw $a1, 4($sp)
+	sw $a2, 8($sp)
+	sw $a3, 12($sp)
+	sw $ra, 16($sp)	
+		
+	addi $a0, $0, 50  # pitch
+	addi $a1, $0, 1100 # duration
+	addi $a2, $0, 80 # instrument
+	addi $a3, $0, 110 # volume
+	jal PlayMusic
+		
+	addi $a0, $0, 45  # pitch
+	addi $a1, $0, 900 # duration
+	addi $a2, $0, 80 # instrument
+	addi $a3, $0, 100 # volume
+	jal PlayMusic
+			
+	addi $a0, $0, 40  # pitch
+	addi $a1, $0, 1000 # duration
+	addi $a2, $0, 80 # instrument
+	addi $a3, $0, 80 # volume
+	jal PlayMusic
+		
+	#####################
+	lw $ra, 16($sp)
+	lw $a3, 12($sp)
+	lw $a2, 8($sp)
+	lw $a1, 4($sp)
+	lw $a0, 0($sp)
+	addi $sp, $sp, 20
+	jr $ra #Return

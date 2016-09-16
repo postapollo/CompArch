@@ -1,0 +1,127 @@
+#Determines if the string entered by the user is a valid input or not
+isValidInput:
+add $t0, $a0, $0		#Set t0 to the argument passed into subroutine for later use
+isValidInputLoop:		#Loop will check to see if the input entered in by the user is valid or not 
+lb $t2, ($t0)			#Load the character into t2 for checking
+beq $t2, 0, isValidInputPass	#If user enteres in zero it is a valid
+blt $t2, 'A', isValidInputFalse	#Otherwise branch appropairtely if the user enters in invalid input
+bgt $t2, 'z', isValidInputFalse
+bgt $t2, 'Z', isValidCheck
+add $t0, $t0, 1 
+j isValidInputLoop
+isValidCheck:
+blt $t2, 'a', isValidInputFalse
+add $t0, $t0, 1 
+j isValidInputLoop
+isValidInputFalse:			#will return true or false value in reg $v1 
+li, $v1, 0
+jr $ra
+isValidInputPass:
+li, $v1, 1
+jr $ra
+	
+#Since the dictionary files are in all caps, when the user in puts a series of letters, the letters are converted to caps so that they may be compared
+generateAllCapped:
+add $t0, $a0, $0		#t0 contains word being passed in to convert to caps
+generateAllCappedLoop:		#convert every character in the word to caps if it isnt already
+lb $t2, ($t0)			
+beq $t2, 0, generateAllCappedReturn	
+ble $t2, 'Z', generateAllCappedIsCap 
+addi $t2, $t2, -32
+sb $t2, ($t0)
+generateAllCappedIsCap:
+add $t0, $t0, 1 		#tore each individual byte that has been changed to caps
+j generateAllCappedLoop		#Loop untill all caps
+generateAllCappedReturn:
+jr $ra	
+		
+	
+
+#Gets length of a string
+getLength:
+add $t0, $a0, $0		#t0 has string to be checked
+li $t1, 0
+getLengthLoop:	
+lb $t2, ($t0)
+beq $t2, 0, getLengthReturn	#If the end of the string has been reached, null characterm return 
+add $t1, $t1, 1 		#Increment 
+add $t0, $t0, 1
+j getLengthLoop
+getLengthReturn:
+move $v1, $t1
+jr $ra
+	
+
+#will fill the fillLetterArray at a0 with the information from the string at a1
+fillLetterArray:
+subi $sp, $sp, 4		#make room on stack pointer 
+sw $ra, ($sp)  
+jal ClearLetterArray		#execute method to clear array first
+add $t0, $a1, $0		#string information for word located in re
+fillLetterArrayLoop:				
+lb $t1, ($t0)
+beq $t1, 0, fillLetterArrayReturn	#exit condition if array is filled 
+sub $t1, $t1, 'A'			
+add $t1, $t1, $a0			
+lb $t2, ($t1)
+add $t2, $t2, 1
+sb $t2, ($t1)
+add $t0, $t0, 1 			#scanner advances 
+j fillLetterArrayLoop
+fillLetterArrayReturn:
+lw $ra, ($sp) 
+addi $sp, $sp, 4
+jr $ra
+	
+	
+	
+#_____________________________________________________________________________________________________________
+#Clears the letterArray at a1.	
+ClearLetterArray:
+add $t0, $a0, $0	
+li $t1, 0
+ClearLetterArrayLoop:
+beq $t1, 26, ClearLetterArrayReturn
+add $t1, $t1, 1
+sb $0, ($t0) 
+add $t0, $t0, 1 #advance scanner
+j ClearLetterArrayLoop
+ClearLetterArrayReturn:
+jr $ra
+
+
+
+
+
+
+
+
+#_____________________________________________________________________________________________________________
+HasMainLetterScan:
+li $t0, 0 
+lb $t1, mainLetter			#checks against mainLetter 
+HasMainLetterScanLoop:
+add $t2, $a0, $t0
+lb $t2, ($t2)
+beq $t2, 0, HasMainLetterScanFalse
+beq $t1, $t2, HasMainLetterScanPass
+add $t0, $t0, 1 
+j HasMainLetterScanLoop
+HasMainLetterScanPass:				#pass condition 
+li $v1, 1
+jr $ra
+HasMainLetterScanFalse:				
+li $v1, 0
+jr $ra
+
+#Generates a random number
+randNumber:
+move $t1, $a0	#Save argument for use
+li   $v0, 41       #syscall for random int
+syscall
+divu $t0, $a0, $t1   #Change the length to be lesser than certain num      
+mfhi $v0		#output 
+jr $ra
+	
+	
+	

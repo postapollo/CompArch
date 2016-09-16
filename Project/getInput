@@ -1,0 +1,98 @@
+# file takes in user input
+# branches depending on user choice 
+# takes user guesses and converts to all caps, checks against dictionary saved correct words 
+#
+#
+#
+#
+#
+##################################################################
+
+
+.text
+getInput:
+addi $sp, $sp, -4		# make space on the stack 
+sw $ra, ($sp)
+la $a0, askForInput		# print message asking for user input 
+li $v0, 4
+syscall				# Ask for input
+
+la $a0, userWord		# saves user word into register $a0 
+la $a1, userWord		# saves user word into register $a1 
+la $v0, 8			# string_read system call 
+syscall
+
+la $a0, userWord		
+lb $t0, 0($a0)				# possible options for user 
+beq $t0, '0', closeInput			# note: all data must be included in Main file 
+beq $t0, '1', gotRandomInput
+beq $t0, '2', gotTimeInput
+beq $t0, '3', gotWordInput
+beq $t0, '4', gotInputPromptAgain
+
+
+la $a0, userWord			
+jal generateAllCapped		
+	
+addi $v0, $0, 5			# see above code 
+j makeSpaceForNewInput
+gotRandomInput:
+addi $v0, $0, 1
+j makeSpaceForNewInput
+gotTimeInput:
+addi $v0, $0, 2
+j makeSpaceForNewInput
+gotWordInput:
+addi $v0, $0, 3
+j makeSpaceForNewInput
+gotInputPromptAgain:
+addi $v0, $0, 4
+j makeSpaceForNewInput
+closeInput:
+add $v0, $0, $0
+makeSpaceForNewInput:
+lw $ra, ($sp)
+addi $sp, $sp, 4
+jr $ra
+	
+displayInput:
+la $a0, typedInText
+li $v0, 4
+syscall
+
+jr $ra
+	
+	
+promptNewGame:
+la $a0, runProgramAgainText	#ask the user if they want to play again
+li $v0, 4
+syscall
+gotNewGame:	
+la $a0, userWord
+la $a1, userWord
+li $v0, 8
+syscall							#get the input
+la $a0, userWord
+lb $t0, 0($a0)
+beq $t0, 'n', endTheGameTrue			#if the user types in N or n, exit is true, end game 
+beq $t0, 'N', endTheGameTrue
+	
+beq $t0, 'y', endTheGameFalse			#if the user types in Y or y, start a new game 
+beq $t0, 'Y', endTheGameFalse
+		
+la $a0, invalidPlayAgain			#if the user types in any other key, keep looping until they choose correct input 
+li $v0, 4
+syscall
+
+#la $a0, playAgainPrompt 
+#li $v0, 4
+#sycall 
+	
+j gotNewGame 				#loops to get input to play again or not 	
+endTheGameTrue:
+addi $v0, $0, 0				#set value to 0
+j endTheGame
+endTheGameFalse:
+add $v0, $0, 1				#if value of $v0 is 0, exit is true, game exits 
+endTheGame:					
+jr $ra
